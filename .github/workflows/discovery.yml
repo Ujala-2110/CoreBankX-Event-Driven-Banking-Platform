@@ -19,6 +19,7 @@ jobs:
           distribution: 'corretto'
           cache: 'maven'
       - name: Build with Maven
+        working-directory: discoveryService/discoveryService
         run: mvn clean package -DskipTests
 
   # --- STAGE 2: DEPLOYMENT (Only runs on PUSH/MERGE to master) ---
