@@ -1,4 +1,18 @@
 services:
+  discovery-service:
+    build:
+      context: ./CoreBankX-Event-Driven-Banking-Platform/discoveryService/discoveryService
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - novabank-net
+
   kafka:
     image: apache/kafka:latest
     container_name: kafka
@@ -17,3 +31,75 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
+
+  api-gateway:
+    build: ./CoreBankX-Event-Driven-Banking-Platform/apigateway/apigateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    env_file: ./CoreBankX-Event-Driven-Banking-Platform/apigateway/apigateway/application-env.properties
+    environment:
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+    networks:
+      - novabank-net
+
+
+  user-account-service:
+    build: ./CoreBankX-Event-Driven-Banking-Platform/usersaccountservice/usersaccountservice
+    container_name: user-account-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    env_file: ./CoreBankX-Event-Driven-Banking-Platform/usersaccountservice/usersaccountservice/application-env.properties
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+    networks:
+      - novabank-net
+
+  transaction-service:
+    build: ./CoreBankX-Event-Driven-Banking-Platform/transactionservice/transactionservice
+    container_name: transaction-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    env_file: ./CoreBankX-Event-Driven-Banking-Platform/transactionservice/transactionservice/application-env.properties
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+    networks:
+      - novabank-net
+
+  notification-service:
+    build: ./CoreBankX-Event-Driven-Banking-Platform/notificationservice/notificationservice
+    container_name: notification-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    env_file: ./CoreBankX-Event-Driven-Banking-Platform/notificationservice/notificationservice/application-env.properties
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+    networks:
+      - novabank-net
+
+
+
+networks:
+  novabank-net:
+    driver: bridge
